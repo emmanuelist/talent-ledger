@@ -98,3 +98,58 @@
 (define-read-only (is-paused-status)
   (ok (var-get paused))
 )
+
+(define-read-only (get-total-awards)
+  (ok (var-get total-awards))
+)
+
+(define-read-only (get-total-deductions)
+  (ok (var-get total-deductions))
+)
+
+(define-read-only (get-user-reputation-history (user principal))
+  (ok (default-to 
+    { awards: u0, deductions: u0, last-action-block: u0 }
+    (map-get? user-reputation-history user)
+  ))
+)
+
+(define-read-only (get-contract-info)
+  (ok {
+    reputation-score: (var-get reputation-score),
+    owner: (var-get owner),
+    paused: (var-get paused),
+    total-awards: (var-get total-awards),
+    total-deductions: (var-get total-deductions),
+    contract-owner: CONTRACT-OWNER
+  })
+)
+
+;; =================================
+;; Public Functions
+;; =================================
+
+(define-public (award-reputation)
+  (begin
+    ;; Validations
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    (asserts! (< (var-get reputation-score) MAX-REPUTATION-VALUE) ERR-REPUTATION-OVERFLOW)
+    
+    ;; Update reputation score
+    (var-set reputation-score (+ (var-get reputation-score) u1))
+    (var-set total-awards (+ (var-get total-awards) u1))
+    
+    ;; Update user stats
+    (update-user-stats "award")
+    
+    ;; Emit event
+    (print {
+      event: "reputation-awarded",
+      reputation-score: (var-get reputation-score),
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
