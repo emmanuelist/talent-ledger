@@ -304,3 +304,20 @@
     (ok true)
   )
 )
+
+(define-public (unpause)
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (is-paused) ERR-NOT-AUTHORIZED)
+    
+    (var-set paused false)
+    
+    (print {
+      event: "contract-unpaused",
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok true)
+  )
+)
