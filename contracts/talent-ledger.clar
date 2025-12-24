@@ -153,3 +153,52 @@
     (ok (var-get reputation-score))
   )
 )
+
+(define-public (deduct-reputation)
+  (begin
+    ;; Validations
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    (asserts! (> (var-get reputation-score) MIN-REPUTATION-VALUE) ERR-REPUTATION-UNDERFLOW)
+    
+    ;; Update reputation score
+    (var-set reputation-score (- (var-get reputation-score) u1))
+    (var-set total-deductions (+ (var-get total-deductions) u1))
+    
+    ;; Update user stats
+    (update-user-stats "deduct")
+    
+    ;; Emit event
+    (print {
+      event: "reputation-deducted",
+      reputation-score: (var-get reputation-score),
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
+
+(define-public (award-reputation-batch (amount uint))
+  (begin
+    ;; Validations
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    (asserts! (> amount u0) ERR-INVALID-VALUE)
+    (asserts! (<= (+ (var-get reputation-score) amount) MAX-REPUTATION-VALUE) ERR-REPUTATION-OVERFLOW)
+    
+    ;; Update reputation score
+    (var-set reputation-score (+ (var-get reputation-score) amount))
+    (var-set total-awards (+ (var-get total-awards) amount))
+    
+    ;; Emit event
+    (print {
+      event: "reputation-awarded-batch",
+      amount: amount,
+      reputation-score: (var-get reputation-score),
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
