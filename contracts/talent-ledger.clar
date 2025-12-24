@@ -246,3 +246,61 @@
     (ok (var-get reputation-score))
   )
 )
+
+(define-public (set-reputation-score (new-value uint))
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (<= new-value MAX-REPUTATION-VALUE) ERR-INVALID-VALUE)
+    
+    (let ((old-value (var-get reputation-score)))
+      (var-set reputation-score new-value)
+      
+      (print {
+        event: "reputation-score-set",
+        old-value: old-value,
+        new-value: new-value,
+        user: tx-sender,
+        block: stacks-block-height
+      })
+      
+      (ok (var-get reputation-score))
+    )
+  )
+)
+
+(define-public (transfer-ownership (new-owner principal))
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (not (is-eq new-owner (var-get owner))) ERR-SAME-OWNER)
+    
+    (let ((old-owner (var-get owner)))
+      (var-set owner new-owner)
+      
+      (print {
+        event: "ownership-transferred",
+        old-owner: old-owner,
+        new-owner: new-owner,
+        block: stacks-block-height
+      })
+      
+      (ok new-owner)
+    )
+  )
+)
+
+(define-public (pause)
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    
+    (var-set paused true)
+    
+    (print {
+      event: "contract-paused",
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok true)
+  )
+)
