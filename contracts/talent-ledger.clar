@@ -98,3 +98,226 @@
 (define-read-only (is-paused-status)
   (ok (var-get paused))
 )
+
+(define-read-only (get-total-awards)
+  (ok (var-get total-awards))
+)
+
+(define-read-only (get-total-deductions)
+  (ok (var-get total-deductions))
+)
+
+(define-read-only (get-user-reputation-history (user principal))
+  (ok (default-to 
+    { awards: u0, deductions: u0, last-action-block: u0 }
+    (map-get? user-reputation-history user)
+  ))
+)
+
+(define-read-only (get-contract-info)
+  (ok {
+    reputation-score: (var-get reputation-score),
+    owner: (var-get owner),
+    paused: (var-get paused),
+    total-awards: (var-get total-awards),
+    total-deductions: (var-get total-deductions),
+    contract-owner: CONTRACT-OWNER
+  })
+)
+
+;; =================================
+;; Public Functions
+;; =================================
+
+(define-public (award-reputation)
+  (begin
+    ;; Validations
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    (asserts! (< (var-get reputation-score) MAX-REPUTATION-VALUE) ERR-REPUTATION-OVERFLOW)
+    
+    ;; Update reputation score
+    (var-set reputation-score (+ (var-get reputation-score) u1))
+    (var-set total-awards (+ (var-get total-awards) u1))
+    
+    ;; Update user stats
+    (update-user-stats "award")
+    
+    ;; Emit event
+    (print {
+      event: "reputation-awarded",
+      reputation-score: (var-get reputation-score),
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
+
+(define-public (deduct-reputation)
+  (begin
+    ;; Validations
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    (asserts! (> (var-get reputation-score) MIN-REPUTATION-VALUE) ERR-REPUTATION-UNDERFLOW)
+    
+    ;; Update reputation score
+    (var-set reputation-score (- (var-get reputation-score) u1))
+    (var-set total-deductions (+ (var-get total-deductions) u1))
+    
+    ;; Update user stats
+    (update-user-stats "deduct")
+    
+    ;; Emit event
+    (print {
+      event: "reputation-deducted",
+      reputation-score: (var-get reputation-score),
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
+
+(define-public (award-reputation-batch (amount uint))
+  (begin
+    ;; Validations
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    (asserts! (> amount u0) ERR-INVALID-VALUE)
+    (asserts! (<= (+ (var-get reputation-score) amount) MAX-REPUTATION-VALUE) ERR-REPUTATION-OVERFLOW)
+    
+    ;; Update reputation score
+    (var-set reputation-score (+ (var-get reputation-score) amount))
+    (var-set total-awards (+ (var-get total-awards) amount))
+    
+    ;; Emit event
+    (print {
+      event: "reputation-awarded-batch",
+      amount: amount,
+      reputation-score: (var-get reputation-score),
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
+
+(define-public (deduct-reputation-batch (amount uint))
+  (begin
+    ;; Validations
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    (asserts! (> amount u0) ERR-INVALID-VALUE)
+    (asserts! (>= (var-get reputation-score) amount) ERR-REPUTATION-UNDERFLOW)
+    
+    ;; Update reputation score
+    (var-set reputation-score (- (var-get reputation-score) amount))
+    (var-set total-deductions (+ (var-get total-deductions) amount))
+    
+    ;; Emit event
+    (print {
+      event: "reputation-deducted-batch",
+      amount: amount,
+      reputation-score: (var-get reputation-score),
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
+
+;; =================================
+;; Owner-Only Functions
+;; =================================
+
+(define-public (reset-reputation)
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    
+    (var-set reputation-score u0)
+    
+    (print {
+      event: "reputation-reset",
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
+
+(define-public (set-reputation-score (new-value uint))
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (<= new-value MAX-REPUTATION-VALUE) ERR-INVALID-VALUE)
+    
+    (let ((old-value (var-get reputation-score)))
+      (var-set reputation-score new-value)
+      
+      (print {
+        event: "reputation-score-set",
+        old-value: old-value,
+        new-value: new-value,
+        user: tx-sender,
+        block: stacks-block-height
+      })
+      
+      (ok (var-get reputation-score))
+    )
+  )
+)
+
+(define-public (transfer-ownership (new-owner principal))
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (not (is-eq new-owner (var-get owner))) ERR-SAME-OWNER)
+    
+    (let ((old-owner (var-get owner)))
+      (var-set owner new-owner)
+      
+      (print {
+        event: "ownership-transferred",
+        old-owner: old-owner,
+        new-owner: new-owner,
+        block: stacks-block-height
+      })
+      
+      (ok new-owner)
+    )
+  )
+)
+
+(define-public (pause)
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    
+    (var-set paused true)
+    
+    (print {
+      event: "contract-paused",
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok true)
+  )
+)
+
+(define-public (unpause)
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (is-paused) ERR-NOT-AUTHORIZED)
+    
+    (var-set paused false)
+    
+    (print {
+      event: "contract-unpaused",
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok true)
+  )
+)
