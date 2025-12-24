@@ -43,3 +43,58 @@
     last-action-block: uint
   }
 )
+
+;; =================================
+;; Private Functions
+;; =================================
+
+(define-private (is-contract-owner)
+  (is-eq tx-sender (var-get owner))
+)
+
+(define-private (is-paused)
+  (var-get paused)
+)
+
+(define-private (update-user-stats (operation (string-ascii 10)))
+  (let
+    (
+      (current-stats (default-to 
+        { awards: u0, deductions: u0, last-action-block: u0 }
+        (map-get? user-reputation-history tx-sender)
+      ))
+    )
+    (if (is-eq operation "award")
+      (map-set user-reputation-history tx-sender {
+        awards: (+ (get awards current-stats) u1),
+        deductions: (get deductions current-stats),
+        last-action-block: stacks-block-height
+      })
+      (map-set user-reputation-history tx-sender {
+        awards: (get awards current-stats),
+        deductions: (+ (get deductions current-stats) u1),
+        last-action-block: stacks-block-height
+      })
+    )
+  )
+)
+
+;; =================================
+;; Read-Only Functions
+;; =================================
+
+(define-read-only (get-reputation-score)
+  (ok (var-get reputation-score))
+)
+
+(define-read-only (get-owner)
+  (ok (var-get owner))
+)
+
+(define-read-only (get-contract-owner)
+  (ok CONTRACT-OWNER)
+)
+
+(define-read-only (is-paused-status)
+  (ok (var-get paused))
+)
