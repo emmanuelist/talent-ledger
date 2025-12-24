@@ -1,0 +1,18 @@
+---
+id: 0
+name: Mainnet deployment
+network: mainnet
+stacks-node: "https://api.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoin.blockstack.com:8332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: talent-ledger
+            expected-sender: SPHB047A30W99178TR7KE0784C2GV22070JTKX8
+            cost: 77050
+            path: contracts/talent-ledger.clar
+            anchor-block-only: true
+            clarity-version: 4
+      epoch: "3.3"
