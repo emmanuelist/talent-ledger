@@ -202,3 +202,47 @@
     (ok (var-get reputation-score))
   )
 )
+
+(define-public (deduct-reputation-batch (amount uint))
+  (begin
+    ;; Validations
+    (asserts! (not (is-paused)) ERR-NOT-AUTHORIZED)
+    (asserts! (> amount u0) ERR-INVALID-VALUE)
+    (asserts! (>= (var-get reputation-score) amount) ERR-REPUTATION-UNDERFLOW)
+    
+    ;; Update reputation score
+    (var-set reputation-score (- (var-get reputation-score) amount))
+    (var-set total-deductions (+ (var-get total-deductions) amount))
+    
+    ;; Emit event
+    (print {
+      event: "reputation-deducted-batch",
+      amount: amount,
+      reputation-score: (var-get reputation-score),
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
+
+;; =================================
+;; Owner-Only Functions
+;; =================================
+
+(define-public (reset-reputation)
+  (begin
+    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+    
+    (var-set reputation-score u0)
+    
+    (print {
+      event: "reputation-reset",
+      user: tx-sender,
+      block: stacks-block-height
+    })
+    
+    (ok (var-get reputation-score))
+  )
+)
